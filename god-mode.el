@@ -150,7 +150,6 @@
   "TODO"
   (let ((key-consumed t) next-modifier next-key)
     (message key-string-so-far)
-    (if (and (not (string= key-string-so-far "")) (string= key "SPC")) (setq key " "))
     (setq next-modifier
           (cond
            ((string= key god-literal-key) "")
