@@ -130,25 +130,19 @@
   (let ((key (aref (this-command-keys-vector) (- (length (this-command-keys-vector)) 1))))
     (god-mode-interpret-key key)))
 
-(defun god-mode-interpret-key (&optional key key-string-so-far)
-  "Interpret the given key. This function sometimes recurses."
-  (setq key (or key (read-event key-string-so-far)))
-  (setq key (god-mode-sanitized-key-string key))
-  (setq key-string-so-far (or key-string-so-far ""))
-
-  (setq key-string-so-far (key-string-after-consuming-key key key-string-so-far))
-  (let* ((command (read-kbd-macro key-string-so-far))
-         (binding (key-binding command)))
-    (god-mode-execute-binding key-string-so-far binding))
+(defun god-mode-interpret-key (key &optional key-string-so-far)
+  "Interpret the given key. This function sometimes recurses. key-string-so-far should be nil for the first call in the sequence."
+  (let ((sanitized-key (if key-string-so-far (char-to-string (or key (read-event key-string-so-far))) (god-mode-sanitized-key-string (or key (read-event key-string-so-far))))))
+    (god-mode-try-execute (key-string-after-consuming-key sanitized-key key-string-so-far))
+  )
 )
 
 (defun god-mode-sanitized-key-string (key)
   "TODO"
-  (setq key (char-to-string key))
   (cond
-   ((string= key " ") "SPC")
+   ((eq key ?\ ) "SPC")
    ((eq key 'backspace) "DEL")
-   (t key)
+   (t (char-to-string key))
    )
   )
 
@@ -167,20 +161,21 @@
             "C-"
             )))
     (setq next-key (if key-consumed (god-mode-sanitized-key-string (read-event key-string-so-far)) key))
-    (concat key-string-so-far " " next-modifier next-key)))
+    (if key-string-so-far (concat key-string-so-far " " next-modifier next-key) (concat next-modifier next-key))))
 
-(defun god-mode-execute-binding (key-string binding)
+(defun god-mode-try-execute (key-string)
   "Execute extended keymaps such as C-c, or if it is a command,
 call it."
-  (cond ((commandp binding)
-         (setq this-original-command binding)
-         (setq this-command binding)
-         (setq real-this-command binding)    ;; `real-this-command'  is used by emacs to populate `last-repeatable-command', which is used by `repeat'.
-         (call-interactively binding))
-        ((keymapp binding)
-         (god-mode-interpret-key nil key-string))
-        (:else
-         (error "God: Unknown key binding for `%s`" key-string))))
+  (let ((binding (key-binding (read-kbd-macro key-string))))
+    (cond ((commandp binding)
+           (setq this-original-command binding)
+           (setq this-command binding)
+           (setq real-this-command binding)    ;; `real-this-command'  is used by emacs to populate `last-repeatable-command', which is used by `repeat'.
+           (call-interactively binding))
+          ((keymapp binding)
+           (god-mode-interpret-key nil key-string))
+          (:else
+           (error "God: Unknown key binding for `%s`" key-string)))))
 
 (add-hook 'after-change-major-mode-hook 'god-mode-maybe-activate)
 
